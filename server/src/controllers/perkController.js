@@ -16,7 +16,12 @@ const perkSchema = Joi.object({
 
 }); 
 
-  
+const updatePerkSchema = Joi.object({
+  // check that title is at least 2 characters long, and required
+  title: Joi.string().min(2)
+});
+
+
 
 // Filter perks by exact title match if title query parameter is provided 
 export async function filterPerks(req, res, next) {
@@ -70,7 +75,17 @@ export async function createPerk(req, res, next) {
 // TODO
 // Update an existing perk by ID and validate only the fields that are being updated 
 export async function updatePerk(req, res, next) {
-  
+  try {
+    // validate request body against schema
+    const { value,error } = updatePerkSchema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+     // ...value spreads the validated fields
+    const doc = await Perk.findByIdAndUpdate(req.params.id, { ...value });
+    res.status(201).json({ perk: doc });
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ message: 'Duplicate perk for this merchant' });
+    next(err);
+  }
 }
 
 
