@@ -60,7 +60,7 @@ export async function getAllPerks(req, res, next) {
 export async function createPerk(req, res, next) {
   try {
     // validate request body against schema
-    const { value, error } = perkSchema.validate(req.body);
+    const { value, error } = perkSchema.validate(req.body); 
     if (error) return res.status(400).json({ message: error.message });
      // ...value spreads the validated fields
     const doc = await Perk.create({ ...value});
