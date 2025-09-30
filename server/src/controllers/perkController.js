@@ -70,7 +70,37 @@ export async function createPerk(req, res, next) {
 // TODO
 // Update an existing perk by ID and validate only the fields that are being updated 
 export async function updatePerk(req, res, next) {
-  
+  try {
+    // reject empty body
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({ message: 'No fields provided to update' });
+    }
+
+    // make all fields optional for update
+    const schemaDescription = perkSchema.describe();
+    const updateSchema = perkSchema.fork(Object.keys(schemaDescription.keys), (field) => field.optional());
+
+    // validate and strip unknown fields
+    const { value, error } = updateSchema.validate(req.body, { stripUnknown: true, abortEarly: false });
+    if (error) return res.status(400).json({ message: error.message });
+
+    // ensure there is at least one valid field after stripping unknowns
+    if (Object.keys(value).length === 0) {
+      return res.status(400).json({ message: 'No valid fields provided to update' });
+    }
+
+    // find and update the perk, running mongoose validators
+    const perk = await Perk.findByIdAndUpdate(req.params.id, value, { new: true, runValidators: true, context: 'query' });
+
+    if (!perk) return res.status(404).json({ message: 'Perk not found' });
+
+    res.json({ perk });
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({ message: 'Duplicate perk for this merchant' });
+    }
+    next(err);
+  }
 }
 
 
