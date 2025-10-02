@@ -69,8 +69,53 @@ export async function createPerk(req, res, next) {
 }
 // TODO
 // Update an existing perk by ID and validate only the fields that are being updated 
+// Update an existing perk by ID and validate only the fields that are being updated 
 export async function updatePerk(req, res, next) {
-  
+  try {
+    // allowed fields for update
+    const allowed = ['title', 'description', 'category', 'discountPercent', 'merchant'];
+
+    // build a Joi schema where every field is optional (used for partial updates)
+    const updateSchema = Joi.object({
+      title: Joi.string().min(2),
+      description: Joi.string().allow(''),
+      category: Joi.string().valid('food','tech','travel','fitness','other'),
+      discountPercent: Joi.number().min(0).max(100),
+      merchant: Joi.string().allow('')
+    }).min(1); // require at least one field
+
+    // remove any unknown properties from req.body (only keep allowed fields)
+    const updatePayload = {};
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        updatePayload[key] = req.body[key];
+      }
+    }
+
+    // if nothing valid to update
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({ message: 'At least one valid field is required to update' });
+    }
+
+    // validate provided fields
+    const { value, error } = updateSchema.validate(updatePayload);
+    if (error) return res.status(400).json({ message: error.message });
+
+    // perform the update and return the new document
+    const updated = await Perk.findByIdAndUpdate(req.params.id, { $set: value }, {
+      new: true,
+      runValidators: true, // ensure mongoose-level validators (if any) run
+      context: 'query'
+    });
+
+    if (!updated) return res.status(404).json({ message: 'Perk not found' });
+
+    res.json({ perk: updated });
+  } catch (err) {
+    // handle duplicate key (e.g., unique constraint on combination)
+    if (err.code === 11000) return res.status(409).json({ message: 'Duplicate perk for this merchant' });
+    next(err);
+  }
 }
 
 
